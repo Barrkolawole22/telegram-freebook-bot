@@ -1,12 +1,12 @@
 name: Daily Telegram Book Post
 
 on:
+  workflow_dispatch:  # Allows manual trigger
   schedule:
-    - cron: '0 8 * * *'  # Every day at 8:00 AM UTC
-  workflow_dispatch:      # Enables manual trigger
+    - cron: '0 9 * * *'  # Runs daily at 9:00 UTC (adjust as needed)
 
 jobs:
-  post_to_telegram:
+  post-books:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,7 +20,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install gspread oauth2client requests
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Save credentials.json from secret
+        run: |
+          echo "${{ secrets.GOOGLE_CREDS_BASE64 }}" | base64 --decode > credentials.json
 
       - name: Run bot
         env:
