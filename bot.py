@@ -4,17 +4,20 @@ import gspread
 from datetime import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Set up Google Sheets credentials
+# Set up Google Sheets credentials using base64-encoded secret
+print("🔐 Decoding credentials from environment variable...")
+creds_base64 = os.environ.get("GOOGLE_CREDS_BASE64")
+
+if not creds_base64:
+    raise Exception("❌ Missing GOOGLE_CREDS_BASE64 secret in GitHub Actions!")
+
+with open("credentials.json", "wb") as f:
+    f.write(creds_base64.encode("utf-8"))
+    f.flush()
+
+# Authorize Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_json = os.environ.get("GOOGLE_SHEET_CREDS_JSON")
-
-if not creds_json:
-    raise Exception("Missing GOOGLE_SHEET_CREDS_JSON")
-
-with open("creds.json", "w") as f:
-    f.write(creds_json)
-
-creds = ServiceAccountCredentials.from_json_keyfile_name("creds.json", scope)
+creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
 client = gspread.authorize(creds)
 
 # Open the sheet
@@ -22,9 +25,9 @@ sheet = client.open_by_key(os.environ["GOOGLE_SHEET_ID"]).sheet1
 
 # Get today's date
 today_str = datetime.now().strftime("%Y-%m-%d")
-print(f"Today's date: {today_str}")
+print(f"📅 Today's date: {today_str}")
 
-# Read all rows
+# Read all sheet rows
 rows = sheet.get_all_records()
 match_found = False
 
@@ -43,7 +46,7 @@ for row in rows:
         print(f"Cover URL: {cover_url}")
         print(f"Book Link: {book_link}")
 
-        # Construct caption
+        # Construct message
         caption = f"📘 <b>{title}</b>\n\n{description}\n\n👉 <a href=\"{book_link}\">Download Book</a>"
 
         # Send to Telegram
@@ -57,16 +60,15 @@ for row in rows:
             "parse_mode": "HTML"
         }
 
-        print("\n📤 Sending to Telegram...")
-
+        print("\n📤 Sending message to Telegram...")
         response = requests.post(
             f"https://api.telegram.org/bot{telegram_token}/sendPhoto",
             data=payload
         )
 
-        print(f"📡 Telegram API response: {response.status_code}")
+        print(f"📡 Telegram response: {response.status_code}")
         print(f"Response body: {response.text}")
         break
 
 if not match_found:
-    print(f"⚠️ No matching row found for today's date: {today_str}")
+    print(f"⚠️ No post found for today ({today_str}). Make sure your sheet is updated.")
